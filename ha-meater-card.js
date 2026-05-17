@@ -70,12 +70,12 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _initializeDom() {
-    if (!this.shadowRoot) {
-      this.attachShadow({ mode: 'open' });
-    }
-
     if (this._elements) {
       return;
+    }
+
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: 'open' });
     }
 
     const style = document.createElement('style');
@@ -309,7 +309,6 @@ class HaMeaterCardEditor extends HTMLElement {
       this.attachShadow({ mode: 'open' });
     }
 
-    const config = this._config;
     const entityOptions = this._hass?.states
       ? Object.keys(this._hass.states)
           .filter((entityId) => this._isMeaterEntityId(entityId))
@@ -349,18 +348,18 @@ class HaMeaterCardEditor extends HTMLElement {
       </style>
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" type="text" value="${this._escapeHtml(config.title || DEFAULT_TITLE)}" />
+        <input id="title" type="text" value="${this._escapeHtml(this._config.title || DEFAULT_TITLE)}" />
       </div>
       <div class="field">
         <label for="entities">Entities (one per line, optional)</label>
         <textarea id="entities" placeholder="sensor.meater_probe_1_internal_temperature">${this._escapeHtml(
-          Array.isArray(config.entities) ? config.entities.join('\n') : ''
+          Array.isArray(this._config.entities) ? this._config.entities.join('\n') : ''
         )}</textarea>
         <div class="hint">${entityOptions.length} Meater entities discovered from Home Assistant state.</div>
       </div>
       <div class="field">
         <label for="showUnavailable">Show unavailable entities</label>
-        <input id="showUnavailable" type="checkbox" ${config.show_unavailable ? 'checked' : ''} />
+        <input id="showUnavailable" type="checkbox" ${this._config.show_unavailable ? 'checked' : ''} />
       </div>
     `;
 
