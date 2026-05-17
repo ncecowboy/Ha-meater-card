@@ -39,7 +39,6 @@ class HaMeaterCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._initializeDom();
     this._render();
   }
 
@@ -161,13 +160,13 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _render() {
-    if (!this.shadowRoot || !this._config) {
+    if (!this._config) {
       return;
     }
 
     this._initializeDom();
 
-    if (!this._elements) {
+    if (!this.shadowRoot || !this._elements) {
       return;
     }
 
