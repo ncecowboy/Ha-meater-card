@@ -1,6 +1,20 @@
 const DEFAULT_TITLE = 'Meater Overview';
 const GAUGE_PADDING_RATIO = 0.15;
 const GAUGE_MARKER_COLORS = ['var(--error-color)', 'var(--warning-color)', 'var(--info-color)', 'var(--primary-color)'];
+const ZERO_SPREAD_GAUGE_RANGE = 5;
+const PROBE_KEY_SUFFIXES = [
+  'internal_temperature',
+  'ambient_temperature',
+  'target_temperature',
+  'cook_phase',
+  'status',
+  'battery',
+  'battery_level',
+  'connection_status',
+  'surface_temperature',
+  'core_temperature',
+  'temperature',
+];
 const DEFAULT_CARD_CONFIG = {
   title: DEFAULT_TITLE,
   show_unavailable: false,
@@ -414,9 +428,10 @@ class HaMeaterCard extends HTMLElement {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const spread = Math.max(0, maxValue - minValue);
-    const baseSpread = spread === 0 ? 10 : spread;
-    const rangeMin = minValue - baseSpread * GAUGE_PADDING_RATIO;
-    const rangeMax = maxValue + baseSpread * GAUGE_PADDING_RATIO;
+    const rangeMinBase = spread === 0 ? minValue - ZERO_SPREAD_GAUGE_RANGE : minValue - spread * GAUGE_PADDING_RATIO;
+    const rangeMaxBase = spread === 0 ? maxValue + ZERO_SPREAD_GAUGE_RANGE : maxValue + spread * GAUGE_PADDING_RATIO;
+    const rangeMin = spread === 0 && minValue >= 0 ? Math.max(0, rangeMinBase) : rangeMinBase;
+    const rangeMax = rangeMaxBase;
     const rangeSpan = rangeMax - rangeMin;
 
     temperatures.forEach((temperature, index) => {
@@ -529,21 +544,7 @@ class HaMeaterCard extends HTMLElement {
       return null;
     }
 
-    const knownSuffixes = [
-      'internal_temperature',
-      'ambient_temperature',
-      'target_temperature',
-      'cook_phase',
-      'status',
-      'battery',
-      'battery_level',
-      'connection_status',
-      'surface_temperature',
-      'core_temperature',
-      'temperature',
-    ];
-
-    for (const suffix of knownSuffixes) {
+    for (const suffix of PROBE_KEY_SUFFIXES) {
       if (objectId.endsWith(`_${suffix}`)) {
         return objectId.slice(0, -(suffix.length + 1));
       }
@@ -665,8 +666,8 @@ class HaMeaterCard extends HTMLElement {
     return null;
   }
 
-  _formatTimer(totalSeconds) {
-    const safeSeconds = Math.max(0, Math.round(totalSeconds));
+  _formatTimer(durationSeconds) {
+    const safeSeconds = Math.max(0, Math.round(durationSeconds));
     const hours = Math.floor(safeSeconds / 3600);
     const minutes = Math.floor((safeSeconds % 3600) / 60);
     const seconds = safeSeconds % 60;
