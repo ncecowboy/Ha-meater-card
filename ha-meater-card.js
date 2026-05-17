@@ -8,6 +8,7 @@ const PROBE_KEY_SUFFIXES = [
   'target_temperature',
   'peak_temperature',
   'cook_phase',
+  'cook_state',
   'status',
   'battery',
   'battery_level',
