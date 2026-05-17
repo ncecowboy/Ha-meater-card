@@ -6,6 +6,7 @@ const PROBE_KEY_SUFFIXES = [
   'internal_temperature',
   'ambient_temperature',
   'target_temperature',
+  'peak_temperature',
   'cook_phase',
   'status',
   'battery',
