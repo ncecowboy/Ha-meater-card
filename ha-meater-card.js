@@ -186,6 +186,28 @@ class HaMeaterCard extends HTMLElement {
         font-weight: 600;
       }
 
+      .timer-list {
+        margin-top: 8px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .timer-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.82rem;
+      }
+
+      .timer-name {
+        color: var(--secondary-text-color);
+      }
+
+      .timer-value {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+
       .tile-meta {
         margin-top: 8px;
         font-size: 0.8rem;
@@ -267,6 +289,11 @@ class HaMeaterCard extends HTMLElement {
           probeCard.appendChild(gauge);
         }
 
+        if (probe.timers.length) {
+          const timerList = this._buildTimerList(probe.timers);
+          probeCard.appendChild(timerList);
+        }
+
         if (probe.meta) {
           const meta = document.createElement('div');
           meta.className = 'tile-meta';
@@ -309,6 +336,8 @@ class HaMeaterCard extends HTMLElement {
     const temperatures = [];
     const metaParts = [];
     let status = null;
+    let elapsedSeconds = null;
+    let remainingSeconds = null;
 
     for (const entity of entities) {
       const metric = this._getMetricName(entity.entity_id, probeKey);
@@ -345,12 +374,29 @@ class HaMeaterCard extends HTMLElement {
       } else if (/battery/.test(metric) && this._isNumeric(entity.state)) {
         metaParts.push(`Battery: ${entity.state}%`);
       }
+
+      if (elapsedSeconds === null) {
+        elapsedSeconds = this._extractTimerSeconds(metric, entity.state, attributes, 'elapsed');
+      }
+
+      if (remainingSeconds === null) {
+        remainingSeconds = this._extractTimerSeconds(metric, entity.state, attributes, 'remaining');
+      }
+    }
+
+    const timers = [];
+    if (elapsedSeconds !== null) {
+      timers.push({ label: 'Elapsed time', value: this._formatTimer(elapsedSeconds) });
+    }
+    if (remainingSeconds !== null) {
+      timers.push({ label: 'Time until complete', value: this._formatTimer(remainingSeconds) });
     }
 
     return {
       name,
       status: status || 'Unknown',
       temperatures: this._dedupeTemperatures(temperatures),
+      timers,
       meta: metaParts.filter(Boolean).join(' • '),
     };
   }
@@ -402,6 +448,29 @@ class HaMeaterCard extends HTMLElement {
 
     gauge.append(track, labels, temperatureList);
     return gauge;
+  }
+
+  _buildTimerList(timers) {
+    const timerList = document.createElement('div');
+    timerList.className = 'timer-list';
+
+    timers.forEach((timer) => {
+      const row = document.createElement('div');
+      row.className = 'timer-item';
+
+      const name = document.createElement('span');
+      name.className = 'timer-name';
+      name.textContent = timer.label;
+
+      const value = document.createElement('span');
+      value.className = 'timer-value';
+      value.textContent = timer.value;
+
+      row.append(name, value);
+      timerList.appendChild(row);
+    });
+
+    return timerList;
   }
 
   _formatState(entity) {
@@ -511,6 +580,84 @@ class HaMeaterCard extends HTMLElement {
       unique.set(temperature.label, temperature);
     }
     return [...unique.values()];
+  }
+
+  _extractTimerSeconds(metric, state, attributes, type) {
+    const elapsedMetricPattern = /(elapsed|time_elapsed|cook_time|duration)/;
+    const remainingMetricPattern = /(remaining|time_left|until_complete|to_completion|time_to_completion)/;
+    const metricPattern = type === 'elapsed' ? elapsedMetricPattern : remainingMetricPattern;
+    const attributeKeys =
+      type === 'elapsed'
+        ? ['elapsed_time', 'time_elapsed', 'cook_elapsed_time', 'duration']
+        : ['remaining_time', 'time_remaining', 'cook_time_remaining', 'time_until_complete', 'eta_seconds'];
+
+    if (metricPattern.test(metric)) {
+      const seconds = this._parseDurationSeconds(state);
+      if (seconds !== null) {
+        return seconds;
+      }
+    }
+
+    for (const key of attributeKeys) {
+      if (attributes[key] !== undefined) {
+        const seconds = this._parseDurationSeconds(attributes[key]);
+        if (seconds !== null) {
+          return seconds;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  _parseDurationSeconds(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.round(value));
+    }
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    if (/^\d+(\.\d+)?$/.test(normalized)) {
+      return Math.max(0, Math.round(Number(normalized)));
+    }
+
+    const colonParts = normalized.split(':');
+    if (colonParts.length === 2 || colonParts.length === 3) {
+      const parsed = colonParts.map((part) => Number(part));
+      if (parsed.every((part) => Number.isFinite(part) && part >= 0)) {
+        if (parsed.length === 2) {
+          return parsed[0] * 60 + parsed[1];
+        }
+        return parsed[0] * 3600 + parsed[1] * 60 + parsed[2];
+      }
+    }
+
+    const hourMatch = normalized.match(/(\d+(?:\.\d+)?)h/);
+    const minuteMatch = normalized.match(/(\d+(?:\.\d+)?)m/);
+    const secondMatch = normalized.match(/(\d+(?:\.\d+)?)s/);
+    if (hourMatch || minuteMatch || secondMatch) {
+      const hours = hourMatch ? Number(hourMatch[1]) : 0;
+      const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+      const seconds = secondMatch ? Number(secondMatch[1]) : 0;
+      return Math.max(0, Math.round(hours * 3600 + minutes * 60 + seconds));
+    }
+
+    return null;
+  }
+
+  _formatTimer(totalSeconds) {
+    const safeSeconds = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
   _isNumeric(value) {

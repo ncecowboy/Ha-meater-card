@@ -63,3 +63,4 @@ This card now supports the Lovelace visual editor. You can set:
 - Probe entities are rendered as separate probe cards.
 - Temperatures for a probe are shown together on one shared temperature gauge.
 - Probe status is shown as `Status: ...` in each probe card.
+- When available, each probe card also shows two timers: elapsed time and time until complete.
