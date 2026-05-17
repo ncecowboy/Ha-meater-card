@@ -1,12 +1,13 @@
 const DEFAULT_TITLE = 'Meater Overview';
+const DEFAULT_CARD_CONFIG = {
+  title: DEFAULT_TITLE,
+  show_unavailable: false,
+};
 
 class HaMeaterCard extends HTMLElement {
   constructor() {
     super();
-    this._config = {
-      title: DEFAULT_TITLE,
-      show_unavailable: false,
-    };
+    this._config = { ...DEFAULT_CARD_CONFIG };
   }
 
   static getConfigElement() {
@@ -27,8 +28,7 @@ class HaMeaterCard extends HTMLElement {
     }
 
     this._config = {
-      title: DEFAULT_TITLE,
-      show_unavailable: false,
+      ...DEFAULT_CARD_CONFIG,
       ...config,
     };
 
@@ -288,16 +288,12 @@ if (!window.customCards.some((card) => card.type === 'ha-meater-card')) {
 class HaMeaterCardEditor extends HTMLElement {
   constructor() {
     super();
-    this._config = {
-      title: DEFAULT_TITLE,
-      show_unavailable: false,
-    };
+    this._config = { ...DEFAULT_CARD_CONFIG };
   }
 
   setConfig(config) {
     this._config = {
-      title: DEFAULT_TITLE,
-      show_unavailable: false,
+      ...DEFAULT_CARD_CONFIG,
       ...(config || {}),
     };
     this._render();
