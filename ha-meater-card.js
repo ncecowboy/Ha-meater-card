@@ -37,7 +37,7 @@ class HaMeaterCard extends HTMLElement {
           .map((entityId) => this._hass.states[entityId])
           .filter(Boolean)
       : Object.values(this._hass.states).filter((state) =>
-          state.entity_id.toLowerCase().includes('meater')
+          /(^|[._])meater([._]|$)/i.test(state.entity_id)
         );
 
     return selectedEntities
@@ -130,7 +130,7 @@ class HaMeaterCard extends HTMLElement {
 
     const count = document.createElement('div');
     count.className = 'count';
-    count.textContent = `${entities.length} entities`;
+    count.textContent = `${entities.length} ${entities.length === 1 ? 'entity' : 'entities'}`;
 
     header.append(title, count);
     card.appendChild(header);
