@@ -172,7 +172,7 @@ class HaMeaterCard extends HTMLElement {
 
     const { title, count, content } = this._elements;
     const entities = this._getEntities();
-    title.textContent = this._config.title || DEFAULT_TITLE;
+    title.textContent = this._config.title;
     const entityLabel = entities.length === 1 ? 'entity' : 'entities';
     count.textContent = `${entities.length} ${entityLabel}`;
 
@@ -288,7 +288,10 @@ if (!window.customCards.some((card) => card.type === 'ha-meater-card')) {
 class HaMeaterCardEditor extends HTMLElement {
   constructor() {
     super();
-    this._config = {};
+    this._config = {
+      title: DEFAULT_TITLE,
+      show_unavailable: false,
+    };
   }
 
   setConfig(config) {
