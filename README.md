@@ -4,7 +4,7 @@ A custom Lovelace card for Home Assistant that automatically discovers and displ
 
 ## Installation
 
-1. Copy `/ha-meater-card.js` to your Home Assistant `/config/www/` folder.
+1. Copy `ha-meater-card.js` to your Home Assistant `/config/www/` folder.
 2. Add the resource in **Settings → Dashboards → Resources**:
 
 ```yaml

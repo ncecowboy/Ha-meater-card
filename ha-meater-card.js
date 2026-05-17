@@ -201,7 +201,15 @@ class HaMeaterCard extends HTMLElement {
     }
 
     if (attributes.target_temperature !== undefined) {
-      parts.push(`Target: ${attributes.target_temperature}`);
+      let targetValue = attributes.target_temperature;
+      if (
+        (typeof targetValue === 'number' ||
+          (typeof targetValue === 'string' && /^-?\d+(\.\d+)?$/.test(targetValue))) &&
+        attributes.unit_of_measurement
+      ) {
+        targetValue = `${targetValue} ${attributes.unit_of_measurement}`;
+      }
+      parts.push(`Target: ${targetValue}`);
     }
 
     if (attributes.cook_phase) {
