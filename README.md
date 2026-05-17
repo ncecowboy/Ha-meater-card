@@ -34,7 +34,7 @@ type: custom:ha-meater-card
 title: Meater Overview
 ```
 
-Auto-discovery includes all `sensor.meater_*` entities, so multiple probes (for example `probe_1`, `probe_2`, etc.) are shown automatically.
+Auto-discovery includes all `[domain].meater*` entities (for example `sensor.meater_probe_1_internal_temperature`), so multiple probes (for example `probe_1`, `probe_2`, etc.) are shown automatically.
 
 ### Show specific entities
 

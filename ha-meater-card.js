@@ -1,6 +1,14 @@
 const DEFAULT_TITLE = 'Meater Overview';
 
 class HaMeaterCard extends HTMLElement {
+  constructor() {
+    super();
+    this._config = {
+      title: DEFAULT_TITLE,
+      show_unavailable: false,
+    };
+  }
+
   static getConfigElement() {
     return document.createElement('ha-meater-card-editor');
   }
@@ -24,15 +32,14 @@ class HaMeaterCard extends HTMLElement {
       ...config,
     };
 
-    if (!this.shadowRoot) {
-      this.attachShadow({ mode: 'open' });
-    }
+    this._initializeDom();
 
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
+    this._initializeDom();
     this._render();
   }
 
@@ -63,13 +70,14 @@ class HaMeaterCard extends HTMLElement {
       });
   }
 
-  _render() {
-    if (!this.shadowRoot || !this._config) {
-      return;
+  _initializeDom() {
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: 'open' });
     }
 
-    const entities = this._getEntities();
-    this.shadowRoot.innerHTML = '';
+    if (this._elements) {
+      return;
+    }
 
     const style = document.createElement('style');
     style.textContent = `
@@ -134,21 +142,42 @@ class HaMeaterCard extends HTMLElement {
     `;
 
     const card = document.createElement('ha-card');
-
     const header = document.createElement('div');
     header.className = 'header';
 
     const title = document.createElement('div');
     title.className = 'title';
-    title.textContent = this._config.title;
 
     const count = document.createElement('div');
     count.className = 'count';
+
+    const content = document.createElement('div');
+
+    header.append(title, count);
+    card.append(header, content);
+    this.shadowRoot.append(style, card);
+
+    this._elements = { title, count, content };
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._config) {
+      return;
+    }
+
+    this._initializeDom();
+
+    if (!this._elements) {
+      return;
+    }
+
+    const { title, count, content } = this._elements;
+    const entities = this._getEntities();
+    title.textContent = this._config.title || DEFAULT_TITLE;
     const entityLabel = entities.length === 1 ? 'entity' : 'entities';
     count.textContent = `${entities.length} ${entityLabel}`;
 
-    header.append(title, count);
-    card.appendChild(header);
+    content.replaceChildren();
 
     if (!entities.length) {
       const empty = document.createElement('div');
@@ -156,7 +185,7 @@ class HaMeaterCard extends HTMLElement {
       empty.textContent = Array.isArray(this._config.entities)
         ? 'No matching configured entities were found.'
         : 'No Meater entities were found. Confirm the Meater integration is loaded.';
-      card.appendChild(empty);
+      content.appendChild(empty);
     } else {
       const grid = document.createElement('div');
       grid.className = 'grid';
@@ -185,10 +214,8 @@ class HaMeaterCard extends HTMLElement {
         grid.appendChild(tile);
       }
 
-      card.appendChild(grid);
+      content.appendChild(grid);
     }
-
-    this.shadowRoot.append(style, card);
   }
 
   _formatState(entity) {
@@ -246,16 +273,25 @@ class HaMeaterCard extends HTMLElement {
   }
 }
 
-customElements.define('ha-meater-card', HaMeaterCard);
+if (!customElements.get('ha-meater-card')) {
+  customElements.define('ha-meater-card', HaMeaterCard);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: 'ha-meater-card',
-  name: 'HA Meater Card',
-  description: 'A Lovelace card for visualizing Meater entities.',
-});
+if (!window.customCards.some((card) => card.type === 'ha-meater-card')) {
+  window.customCards.push({
+    type: 'ha-meater-card',
+    name: 'HA Meater Card',
+    description: 'A Lovelace card for visualizing Meater entities.',
+  });
+}
 
 class HaMeaterCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this._config = {};
+  }
+
   setConfig(config) {
     this._config = config || {};
     this._render();
@@ -271,6 +307,7 @@ class HaMeaterCardEditor extends HTMLElement {
       this.attachShadow({ mode: 'open' });
     }
 
+    const config = this._config || {};
     const entityOptions = this._hass?.states
       ? Object.keys(this._hass.states)
           .filter((entityId) => this._isMeaterEntityId(entityId))
@@ -310,18 +347,18 @@ class HaMeaterCardEditor extends HTMLElement {
       </style>
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" type="text" value="${this._escapeHtml(this._config.title || DEFAULT_TITLE)}" />
+        <input id="title" type="text" value="${this._escapeHtml(config.title || DEFAULT_TITLE)}" />
       </div>
       <div class="field">
         <label for="entities">Entities (one per line, optional)</label>
         <textarea id="entities" placeholder="sensor.meater_probe_1_internal_temperature">${this._escapeHtml(
-          Array.isArray(this._config.entities) ? this._config.entities.join('\n') : ''
+          Array.isArray(config.entities) ? config.entities.join('\n') : ''
         )}</textarea>
         <div class="hint">${entityOptions.length} Meater entities discovered from Home Assistant state.</div>
       </div>
       <div class="field">
         <label for="showUnavailable">Show unavailable entities</label>
-        <input id="showUnavailable" type="checkbox" ${this._config.show_unavailable ? 'checked' : ''} />
+        <input id="showUnavailable" type="checkbox" ${config.show_unavailable ? 'checked' : ''} />
       </div>
     `;
 
@@ -372,4 +409,6 @@ class HaMeaterCardEditor extends HTMLElement {
   }
 }
 
-customElements.define('ha-meater-card-editor', HaMeaterCardEditor);
+if (!customElements.get('ha-meater-card-editor')) {
+  customElements.define('ha-meater-card-editor', HaMeaterCardEditor);
+}
