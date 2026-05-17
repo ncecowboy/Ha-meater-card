@@ -1,4 +1,20 @@
 const DEFAULT_TITLE = 'Meater Overview';
+const GAUGE_PADDING_RATIO = 0.15;
+const GAUGE_MARKER_COLORS = ['var(--error-color)', 'var(--warning-color)', 'var(--info-color)', 'var(--primary-color)'];
+const ZERO_SPREAD_GAUGE_RANGE = 5;
+const PROBE_KEY_SUFFIXES = [
+  'internal_temperature',
+  'ambient_temperature',
+  'target_temperature',
+  'cook_phase',
+  'status',
+  'battery',
+  'battery_level',
+  'connection_status',
+  'surface_temperature',
+  'core_temperature',
+  'temperature',
+];
 const DEFAULT_CARD_CONFIG = {
   title: DEFAULT_TITLE,
   show_unavailable: false,
@@ -43,8 +59,8 @@ class HaMeaterCard extends HTMLElement {
   }
 
   getCardSize() {
-    const entityCount = this._getEntities().length || 1;
-    return Math.max(1, Math.ceil(entityCount / 2));
+    const probeCount = this._getProbeCards().length || 1;
+    return Math.max(1, probeCount);
   }
 
   _getEntities() {
@@ -107,6 +123,13 @@ class HaMeaterCard extends HTMLElement {
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
 
+      .probe-card {
+        border-radius: 12px;
+        padding: 12px;
+        background: linear-gradient(160deg, rgba(var(--rgb-primary-color), 0.12), rgba(var(--rgb-primary-color), 0.02));
+        border: 1px solid rgba(var(--rgb-primary-color), 0.2);
+      }
+
       .tile {
         border-radius: 12px;
         padding: 12px;
@@ -114,17 +137,91 @@ class HaMeaterCard extends HTMLElement {
         border: 1px solid rgba(var(--rgb-primary-color), 0.2);
       }
 
-      .tile-name {
+      .probe-title {
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .probe-status {
+        margin-top: 2px;
+        font-size: 0.85rem;
+        color: var(--secondary-text-color);
+      }
+
+      .gauge {
+        margin-top: 10px;
+      }
+
+      .gauge-track {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(var(--rgb-primary-color), 0.12);
+      }
+
+      .gauge-marker {
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        transform: translate(-50%, -50%);
+      }
+
+      .gauge-labels {
+        margin-top: 4px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: var(--secondary-text-color);
+      }
+
+      .temperature-list {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .temperature-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.82rem;
+      }
+
+      .temperature-name {
         font-size: 0.86rem;
         color: var(--secondary-text-color);
         line-height: 1.2;
       }
 
-      .tile-value {
-        margin-top: 6px;
-        font-size: 1.2rem;
-        font-weight: 700;
-        line-height: 1.2;
+      .temperature-value {
+        font-weight: 600;
+      }
+
+      .timer-list {
+        margin-top: 8px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .timer-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.82rem;
+      }
+
+      .timer-name {
+        color: var(--secondary-text-color);
+      }
+
+      .timer-value {
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
       }
 
       .tile-meta {
@@ -171,50 +268,230 @@ class HaMeaterCard extends HTMLElement {
     }
 
     const { title, count, content } = this._elements;
-    const entities = this._getEntities();
+    const probes = this._getProbeCards();
     title.textContent = this._config.title;
-    const entityLabel = entities.length === 1 ? 'entity' : 'entities';
-    count.textContent = `${entities.length} ${entityLabel}`;
+    const probeText = probes.length === 1 ? 'probe' : 'probes';
+    count.textContent = `${probes.length} ${probeText}`;
 
     content.replaceChildren();
 
-    if (!entities.length) {
+    if (!probes.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
       empty.textContent = Array.isArray(this._config.entities)
-        ? 'No matching configured entities were found.'
-        : 'No Meater entities were found. Confirm the Meater integration is loaded.';
+        ? 'No matching configured probe entities were found.'
+        : 'No Meater probe entities were found. Confirm the Meater integration is loaded.';
       content.appendChild(empty);
     } else {
       const grid = document.createElement('div');
       grid.className = 'grid';
 
-      for (const entity of entities) {
-        const tile = document.createElement('div');
-        tile.className = 'tile';
+      for (const probe of probes) {
+        const probeCard = document.createElement('div');
+        probeCard.className = 'probe-card';
 
-        const name = document.createElement('div');
-        name.className = 'tile-name';
-        name.textContent = entity.attributes?.friendly_name || entity.entity_id;
+        const probeTitle = document.createElement('div');
+        probeTitle.className = 'probe-title';
+        probeTitle.textContent = probe.name;
 
-        const value = document.createElement('div');
-        value.className = 'tile-value';
-        value.textContent = this._formatState(entity);
+        const probeStatus = document.createElement('div');
+        probeStatus.className = 'probe-status';
+        probeStatus.textContent = `Status: ${probe.status}`;
 
-        const meta = document.createElement('div');
-        meta.className = 'tile-meta';
-        meta.textContent = this._formatMeta(entity.attributes || {});
+        probeCard.append(probeTitle, probeStatus);
 
-        tile.append(name, value);
-        if (meta.textContent) {
-          tile.appendChild(meta);
+        if (probe.temperatures.length) {
+          const gauge = this._buildTemperatureGauge(probe.temperatures);
+          probeCard.appendChild(gauge);
         }
 
-        grid.appendChild(tile);
+        if (probe.timers.length) {
+          const timerList = this._buildTimerList(probe.timers);
+          probeCard.appendChild(timerList);
+        }
+
+        if (probe.meta) {
+          const meta = document.createElement('div');
+          meta.className = 'tile-meta';
+          meta.textContent = probe.meta;
+          probeCard.appendChild(meta);
+        }
+
+        grid.appendChild(probeCard);
       }
 
       content.appendChild(grid);
     }
+  }
+
+  _getProbeCards() {
+    const grouped = new Map();
+    const entities = this._getEntities();
+
+    for (const entity of entities) {
+      const probeKey = this._getProbeKey(entity.entity_id);
+      if (!probeKey) {
+        continue;
+      }
+
+      if (!grouped.has(probeKey)) {
+        grouped.set(probeKey, []);
+      }
+
+      grouped.get(probeKey).push(entity);
+    }
+
+    return [...grouped.entries()]
+      .map(([probeKey, probeEntities]) => this._buildProbeCard(probeKey, probeEntities))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  _buildProbeCard(probeKey, entities) {
+    const firstEntity = entities[0];
+    const name = firstEntity?.attributes?.probe_name || this._formatProbeName(probeKey);
+    const temperatures = [];
+    const metaParts = [];
+    let status = null;
+    let elapsedSeconds = null;
+    let remainingSeconds = null;
+
+    for (const entity of entities) {
+      const metric = this._getMetricName(entity.entity_id, probeKey);
+      const attributes = entity.attributes || {};
+
+      if (!status && metric === 'status' && entity.state && entity.state !== 'unknown') {
+        status = entity.state;
+      }
+
+      if (!status && metric === 'cook_phase' && entity.state && entity.state !== 'unknown') {
+        status = entity.state;
+      }
+
+      if (!status && attributes.cook_phase) {
+        status = attributes.cook_phase;
+      }
+
+      const isTemperatureMetric =
+        metric.includes('temperature') ||
+        /°[CF]/.test(String(attributes.unit_of_measurement || ''));
+      const numericState = this._isNumeric(entity.state) ? Number(entity.state) : null;
+      if (isTemperatureMetric && numericState !== null) {
+        const label = this._formatTemperatureLabel(metric, attributes.friendly_name || entity.entity_id);
+        const unit = attributes.unit_of_measurement || '';
+        temperatures.push({
+          label,
+          value: numericState,
+          displayValue: `${numericState} ${unit}`.trim(),
+        });
+      }
+
+      if (attributes.battery_level !== undefined) {
+        metaParts.push(`Battery: ${attributes.battery_level}%`);
+      } else if (/battery/.test(metric) && this._isNumeric(entity.state)) {
+        metaParts.push(`Battery: ${entity.state}%`);
+      }
+
+      if (elapsedSeconds === null) {
+        elapsedSeconds = this._extractTimerSeconds(metric, entity.state, attributes, 'elapsed');
+      }
+
+      if (remainingSeconds === null) {
+        remainingSeconds = this._extractTimerSeconds(metric, entity.state, attributes, 'remaining');
+      }
+    }
+
+    const timers = [];
+    if (elapsedSeconds !== null) {
+      timers.push({ label: 'Elapsed time', value: this._formatTimer(elapsedSeconds) });
+    }
+    if (remainingSeconds !== null) {
+      timers.push({ label: 'Time until complete', value: this._formatTimer(remainingSeconds) });
+    }
+
+    return {
+      name,
+      status: status || 'Unknown',
+      temperatures: this._dedupeTemperatures(temperatures),
+      timers,
+      meta: metaParts.filter(Boolean).join(' • '),
+    };
+  }
+
+  _buildTemperatureGauge(temperatures) {
+    const gauge = document.createElement('div');
+    gauge.className = 'gauge';
+
+    const track = document.createElement('div');
+    track.className = 'gauge-track';
+
+    const values = temperatures.map((temperature) => temperature.value);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const spread = Math.max(0, maxValue - minValue);
+    const rangeMinBase = spread === 0 ? minValue - ZERO_SPREAD_GAUGE_RANGE : minValue - spread * GAUGE_PADDING_RATIO;
+    const rangeMaxBase = spread === 0 ? maxValue + ZERO_SPREAD_GAUGE_RANGE : maxValue + spread * GAUGE_PADDING_RATIO;
+    const rangeMin = spread === 0 && minValue >= 0 ? Math.max(0, rangeMinBase) : rangeMinBase;
+    const rangeMax = rangeMaxBase;
+    const rangeSpan = rangeMax - rangeMin;
+
+    temperatures.forEach((temperature, index) => {
+      const marker = document.createElement('div');
+      marker.className = 'gauge-marker';
+      marker.style.left = `${((temperature.value - rangeMin) / rangeSpan) * 100}%`;
+      marker.style.background = GAUGE_MARKER_COLORS[index % GAUGE_MARKER_COLORS.length];
+      marker.title = `${temperature.label}: ${temperature.displayValue}`;
+      track.appendChild(marker);
+    });
+
+    const labels = document.createElement('div');
+    labels.className = 'gauge-labels';
+    const minLabel = document.createElement('span');
+    minLabel.textContent = rangeMin.toFixed(0);
+    const maxLabel = document.createElement('span');
+    maxLabel.textContent = rangeMax.toFixed(0);
+    labels.append(minLabel, maxLabel);
+
+    const temperatureList = document.createElement('ul');
+    temperatureList.className = 'temperature-list';
+
+    temperatures.forEach((temperature) => {
+      const row = document.createElement('li');
+      row.className = 'temperature-item';
+      const name = document.createElement('span');
+      name.className = 'temperature-name';
+      name.textContent = temperature.label;
+      const value = document.createElement('span');
+      value.className = 'temperature-value';
+      value.textContent = temperature.displayValue;
+      row.append(name, value);
+      temperatureList.appendChild(row);
+    });
+
+    gauge.append(track, labels, temperatureList);
+    return gauge;
+  }
+
+  _buildTimerList(timers) {
+    const timerList = document.createElement('div');
+    timerList.className = 'timer-list';
+
+    timers.forEach((timer) => {
+      const row = document.createElement('div');
+      row.className = 'timer-item';
+
+      const name = document.createElement('span');
+      name.className = 'timer-name';
+      name.textContent = timer.label;
+
+      const value = document.createElement('span');
+      value.className = 'timer-value';
+      value.textContent = timer.value;
+
+      row.append(name, value);
+      timerList.appendChild(row);
+    });
+
+    return timerList;
   }
 
   _formatState(entity) {
@@ -259,6 +536,163 @@ class HaMeaterCard extends HTMLElement {
     }
 
     return parts.join(' • ');
+  }
+
+  _getProbeKey(entityId) {
+    const objectId = entityId.split('.')[1] || '';
+    if (!objectId.startsWith('meater_probe_')) {
+      return null;
+    }
+
+    for (const suffix of PROBE_KEY_SUFFIXES) {
+      if (objectId.endsWith(`_${suffix}`)) {
+        return objectId.slice(0, -(suffix.length + 1));
+      }
+    }
+
+    return objectId;
+  }
+
+  _getMetricName(entityId, probeKey) {
+    const objectId = entityId.split('.')[1] || '';
+    if (!objectId.startsWith(`${probeKey}_`)) {
+      return '';
+    }
+    return objectId.slice(probeKey.length + 1);
+  }
+
+  _formatProbeName(probeKey) {
+    return probeKey
+      .replace(/^meater_/i, '')
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _formatTemperatureLabel(metric, fallbackName) {
+    if (!metric) {
+      return fallbackName;
+    }
+
+    return metric
+      .replace(/_temperature$/i, '')
+      .replace(/^temperature$/i, 'current')
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _dedupeTemperatures(temperatures) {
+    const unique = new Map();
+    for (const temperature of temperatures) {
+      unique.set(temperature.label, temperature);
+    }
+    return [...unique.values()];
+  }
+
+  _extractTimerSeconds(metric, state, attributes, type) {
+    const elapsedMetricNames = new Set([
+      'elapsed',
+      'elapsed_time',
+      'time_elapsed',
+      'cook_time',
+      'cook_elapsed_time',
+      'duration',
+    ]);
+    const remainingMetricNames = new Set([
+      'remaining',
+      'remaining_time',
+      'time_remaining',
+      'cook_time_remaining',
+      'time_left',
+      'time_until_complete',
+      'until_complete',
+      'to_completion',
+      'time_to_completion',
+      'eta_seconds',
+    ]);
+    const normalizedMetric = String(metric || '').toLowerCase();
+    const metricMatchesType =
+      type === 'elapsed'
+        ? elapsedMetricNames.has(normalizedMetric)
+        : remainingMetricNames.has(normalizedMetric);
+    const attributeKeys =
+      type === 'elapsed'
+        ? ['elapsed_time', 'time_elapsed', 'cook_elapsed_time', 'duration']
+        : ['remaining_time', 'time_remaining', 'cook_time_remaining', 'time_until_complete', 'eta_seconds'];
+
+    if (metricMatchesType) {
+      const seconds = this._parseDurationSeconds(state);
+      if (seconds !== null) {
+        return seconds;
+      }
+    }
+
+    for (const key of attributeKeys) {
+      if (attributes[key] !== undefined) {
+        const seconds = this._parseDurationSeconds(attributes[key]);
+        if (seconds !== null) {
+          return seconds;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  _parseDurationSeconds(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      if (value < 0) {
+        return null;
+      }
+      return Math.round(value);
+    }
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    if (/^\d+(\.\d+)?$/.test(normalized)) {
+      const parsedValue = Number(normalized);
+      if (parsedValue < 0) {
+        return null;
+      }
+      return Math.round(parsedValue);
+    }
+
+    const colonParts = normalized.split(':');
+    if (colonParts.length === 2 || colonParts.length === 3) {
+      const parsed = colonParts.map((part) => Number(part));
+      if (parsed.every((part) => Number.isFinite(part) && part >= 0)) {
+        if (parsed.length === 2) {
+          return parsed[0] * 60 + parsed[1];
+        }
+        return parsed[0] * 3600 + parsed[1] * 60 + parsed[2];
+      }
+    }
+
+    const hourMatch = normalized.match(/(\d+(?:\.\d+)?)h/);
+    const minuteMatch = normalized.match(/(\d+(?:\.\d+)?)m/);
+    const secondMatch = normalized.match(/(\d+(?:\.\d+)?)s/);
+    if (hourMatch || minuteMatch || secondMatch) {
+      const hours = hourMatch ? Number(hourMatch[1]) : 0;
+      const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+      const seconds = secondMatch ? Number(secondMatch[1]) : 0;
+      return Math.round(hours * 3600 + minutes * 60 + seconds);
+    }
+
+    return null;
+  }
+
+  _formatTimer(durationSeconds) {
+    const safeSeconds = Math.max(0, Math.round(durationSeconds));
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
   _isNumeric(value) {
