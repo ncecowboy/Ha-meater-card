@@ -37,7 +37,7 @@ class HaMeaterCard extends HTMLElement {
           .map((entityId) => this._hass.states[entityId])
           .filter(Boolean)
       : Object.values(this._hass.states).filter((state) =>
-          /(^|[._])meater([._]|$)/i.test(state.entity_id)
+          /^[^.]+\.meater([._]|$)/i.test(state.entity_id)
         );
 
     return selectedEntities
@@ -203,8 +203,7 @@ class HaMeaterCard extends HTMLElement {
     if (attributes.target_temperature !== undefined) {
       let targetValue = attributes.target_temperature;
       if (
-        (typeof targetValue === 'number' ||
-          (typeof targetValue === 'string' && /^-?\d+(\.\d+)?$/.test(targetValue))) &&
+        this._isNumeric(targetValue) &&
         attributes.unit_of_measurement
       ) {
         targetValue = `${targetValue} ${attributes.unit_of_measurement}`;
@@ -217,6 +216,10 @@ class HaMeaterCard extends HTMLElement {
     }
 
     return parts.join(' • ');
+  }
+
+  _isNumeric(value) {
+    return typeof value === 'number' || (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value));
   }
 }
 
