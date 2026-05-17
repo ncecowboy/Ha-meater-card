@@ -1,4 +1,6 @@
 const DEFAULT_TITLE = 'Meater Overview';
+const GAUGE_PADDING_RATIO = 0.15;
+const GAUGE_MARKER_COLORS = ['var(--error-color)', 'var(--warning-color)', 'var(--info-color)', 'var(--primary-color)'];
 const DEFAULT_CARD_CONFIG = {
   title: DEFAULT_TITLE,
   show_unavailable: false,
@@ -412,23 +414,26 @@ class HaMeaterCard extends HTMLElement {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const spread = Math.max(0, maxValue - minValue);
-    const rangeMin = minValue - spread * 0.15;
-    const rangeMax = maxValue + spread * 0.15;
+    const rangeMin = minValue - spread * GAUGE_PADDING_RATIO;
+    const rangeMax = maxValue + spread * GAUGE_PADDING_RATIO;
     const rangeSpan = Math.max(1, rangeMax - rangeMin);
-    const colorScale = ['var(--error-color)', 'var(--warning-color)', 'var(--info-color)', 'var(--primary-color)'];
 
     temperatures.forEach((temperature, index) => {
       const marker = document.createElement('div');
       marker.className = 'gauge-marker';
       marker.style.left = `${((temperature.value - rangeMin) / rangeSpan) * 100}%`;
-      marker.style.background = colorScale[index % colorScale.length];
+      marker.style.background = GAUGE_MARKER_COLORS[index % GAUGE_MARKER_COLORS.length];
       marker.title = `${temperature.label}: ${temperature.displayValue}`;
       track.appendChild(marker);
     });
 
     const labels = document.createElement('div');
     labels.className = 'gauge-labels';
-    labels.innerHTML = `<span>${rangeMin.toFixed(0)}</span><span>${rangeMax.toFixed(0)}</span>`;
+    const minLabel = document.createElement('span');
+    minLabel.textContent = rangeMin.toFixed(0);
+    const maxLabel = document.createElement('span');
+    maxLabel.textContent = rangeMax.toFixed(0);
+    labels.append(minLabel, maxLabel);
 
     const temperatureList = document.createElement('ul');
     temperatureList.className = 'temperature-list';
@@ -612,7 +617,10 @@ class HaMeaterCard extends HTMLElement {
 
   _parseDurationSeconds(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
-      return Math.max(0, Math.round(value));
+      if (value < 0) {
+        return null;
+      }
+      return Math.round(value);
     }
 
     if (typeof value !== 'string') {
@@ -625,7 +633,11 @@ class HaMeaterCard extends HTMLElement {
     }
 
     if (/^\d+(\.\d+)?$/.test(normalized)) {
-      return Math.max(0, Math.round(Number(normalized)));
+      const parsedValue = Number(normalized);
+      if (parsedValue < 0) {
+        return null;
+      }
+      return Math.round(parsedValue);
     }
 
     const colonParts = normalized.split(':');
@@ -646,7 +658,11 @@ class HaMeaterCard extends HTMLElement {
       const hours = hourMatch ? Number(hourMatch[1]) : 0;
       const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
       const seconds = secondMatch ? Number(secondMatch[1]) : 0;
-      return Math.max(0, Math.round(hours * 3600 + minutes * 60 + seconds));
+      const total = hours * 3600 + minutes * 60 + seconds;
+      if (total < 0) {
+        return null;
+      }
+      return Math.round(total);
     }
 
     return null;
