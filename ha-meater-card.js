@@ -295,7 +295,11 @@ class HaMeaterCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = config || {};
+    this._config = {
+      title: DEFAULT_TITLE,
+      show_unavailable: false,
+      ...(config || {}),
+    };
     this._render();
   }
 
@@ -309,7 +313,7 @@ class HaMeaterCardEditor extends HTMLElement {
       this.attachShadow({ mode: 'open' });
     }
 
-    const config = this._config || {};
+    const config = this._config;
     const entityOptions = this._hass?.states
       ? Object.keys(this._hass.states)
           .filter((entityId) => this._isMeaterEntityId(entityId))
