@@ -21,6 +21,8 @@ type: custom:ha-meater-card
 title: Meater Overview
 ```
 
+Auto-discovery includes all `sensor.meater_*` entities, so multiple probes (for example `probe_1`, `probe_2`, etc.) are shown automatically.
+
 ### Show specific entities
 
 ```yaml
@@ -33,6 +35,14 @@ entities:
   - sensor.meater_block_battery
 show_unavailable: false
 ```
+
+### Lovelace visual editor
+
+This card now supports the Lovelace visual editor. You can set:
+
+- title
+- show unavailable entities
+- explicit entity list (one entity per line)
 
 ## Notes
 

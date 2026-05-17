@@ -1,4 +1,16 @@
 class HaMeaterCard extends HTMLElement {
+  static async getConfigElement() {
+    return document.createElement('ha-meater-card-editor');
+  }
+
+  static getStubConfig() {
+    return {
+      type: 'custom:ha-meater-card',
+      title: 'Meater Overview',
+      show_unavailable: false,
+    };
+  }
+
   setConfig(config) {
     if (!config || config.type !== 'custom:ha-meater-card') {
       throw new Error('Card type must be custom:ha-meater-card');
@@ -240,3 +252,118 @@ window.customCards.push({
   name: 'HA Meater Card',
   description: 'A Lovelace card for visualizing Meater entities.',
 });
+
+class HaMeaterCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this.shadowRoot) {
+      this.attachShadow({ mode: 'open' });
+    }
+
+    const entityOptions = this._hass?.states
+      ? Object.keys(this._hass.states)
+          .filter((entityId) => /^[^.]+\.meater([._]|$)/i.test(entityId))
+          .sort((a, b) => a.localeCompare(b))
+      : [];
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        .field {
+          margin: 8px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        label {
+          font-size: 0.85rem;
+          color: var(--secondary-text-color);
+        }
+
+        input,
+        textarea {
+          font: inherit;
+          padding: 8px;
+        }
+
+        textarea {
+          min-height: 110px;
+          resize: vertical;
+        }
+
+        .hint {
+          margin-top: 4px;
+          font-size: 0.8rem;
+          color: var(--secondary-text-color);
+        }
+      </style>
+      <div class="field">
+        <label for="title">Title</label>
+        <input id="title" type="text" value="${this._escapeHtml(this._config.title || 'Meater')}" />
+      </div>
+      <div class="field">
+        <label for="entities">Entities (one per line, optional)</label>
+        <textarea id="entities" placeholder="sensor.meater_probe_1_internal_temperature">${this._escapeHtml(
+          Array.isArray(this._config.entities) ? this._config.entities.join('\n') : ''
+        )}</textarea>
+        <div class="hint">${entityOptions.length} Meater entities discovered from Home Assistant state.</div>
+      </div>
+      <div class="field">
+        <label for="showUnavailable">Show unavailable entities</label>
+        <input id="showUnavailable" type="checkbox" ${this._config.show_unavailable ? 'checked' : ''} />
+      </div>
+    `;
+
+    this.shadowRoot.getElementById('title').addEventListener('input', (event) => {
+      this._updateConfig({ title: event.target.value.trim() || 'Meater' });
+    });
+
+    this.shadowRoot.getElementById('entities').addEventListener('input', (event) => {
+      const entities = event.target.value
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+      this._updateConfig({ entities: entities.length ? entities : undefined });
+    });
+
+    this.shadowRoot.getElementById('showUnavailable').addEventListener('change', (event) => {
+      this._updateConfig({ show_unavailable: event.target.checked });
+    });
+  }
+
+  _updateConfig(changes) {
+    const nextConfig = { ...this._config, ...changes, type: 'custom:ha-meater-card' };
+    if (nextConfig.entities === undefined) {
+      delete nextConfig.entities;
+    }
+
+    this._config = nextConfig;
+    this.dispatchEvent(
+      new CustomEvent('config-changed', {
+        detail: { config: nextConfig },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  _escapeHtml(value) {
+    return String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+}
+
+customElements.define('ha-meater-card-editor', HaMeaterCardEditor);
