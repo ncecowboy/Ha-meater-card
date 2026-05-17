@@ -43,8 +43,8 @@ class HaMeaterCard extends HTMLElement {
   }
 
   getCardSize() {
-    const entityCount = this._getEntities().length || 1;
-    return Math.max(1, Math.ceil(entityCount / 2));
+    const probeCount = this._getProbeCards().length || 1;
+    return Math.max(1, probeCount);
   }
 
   _getEntities() {
@@ -107,6 +107,13 @@ class HaMeaterCard extends HTMLElement {
         grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       }
 
+      .probe-card {
+        border-radius: 12px;
+        padding: 12px;
+        background: linear-gradient(160deg, rgba(var(--rgb-primary-color), 0.12), rgba(var(--rgb-primary-color), 0.02));
+        border: 1px solid rgba(var(--rgb-primary-color), 0.2);
+      }
+
       .tile {
         border-radius: 12px;
         padding: 12px;
@@ -114,17 +121,69 @@ class HaMeaterCard extends HTMLElement {
         border: 1px solid rgba(var(--rgb-primary-color), 0.2);
       }
 
-      .tile-name {
+      .probe-title {
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      .probe-status {
+        margin-top: 2px;
+        font-size: 0.85rem;
+        color: var(--secondary-text-color);
+      }
+
+      .gauge {
+        margin-top: 10px;
+      }
+
+      .gauge-track {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(var(--rgb-primary-color), 0.12);
+      }
+
+      .gauge-marker {
+        position: absolute;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        transform: translate(-50%, -50%);
+      }
+
+      .gauge-labels {
+        margin-top: 4px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: var(--secondary-text-color);
+      }
+
+      .temperature-list {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .temperature-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.82rem;
+      }
+
+      .temperature-name {
         font-size: 0.86rem;
         color: var(--secondary-text-color);
         line-height: 1.2;
       }
 
-      .tile-value {
-        margin-top: 6px;
-        font-size: 1.2rem;
-        font-weight: 700;
-        line-height: 1.2;
+      .temperature-value {
+        font-weight: 600;
       }
 
       .tile-meta {
@@ -171,50 +230,178 @@ class HaMeaterCard extends HTMLElement {
     }
 
     const { title, count, content } = this._elements;
-    const entities = this._getEntities();
+    const probes = this._getProbeCards();
     title.textContent = this._config.title;
-    const entityLabel = entities.length === 1 ? 'entity' : 'entities';
-    count.textContent = `${entities.length} ${entityLabel}`;
+    const probeText = probes.length === 1 ? 'probe' : 'probes';
+    count.textContent = `${probes.length} ${probeText}`;
 
     content.replaceChildren();
 
-    if (!entities.length) {
+    if (!probes.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
       empty.textContent = Array.isArray(this._config.entities)
-        ? 'No matching configured entities were found.'
-        : 'No Meater entities were found. Confirm the Meater integration is loaded.';
+        ? 'No matching configured probe entities were found.'
+        : 'No Meater probe entities were found. Confirm the Meater integration is loaded.';
       content.appendChild(empty);
     } else {
       const grid = document.createElement('div');
       grid.className = 'grid';
 
-      for (const entity of entities) {
-        const tile = document.createElement('div');
-        tile.className = 'tile';
+      for (const probe of probes) {
+        const probeCard = document.createElement('div');
+        probeCard.className = 'probe-card';
 
-        const name = document.createElement('div');
-        name.className = 'tile-name';
-        name.textContent = entity.attributes?.friendly_name || entity.entity_id;
+        const probeTitle = document.createElement('div');
+        probeTitle.className = 'probe-title';
+        probeTitle.textContent = probe.name;
 
-        const value = document.createElement('div');
-        value.className = 'tile-value';
-        value.textContent = this._formatState(entity);
+        const probeStatus = document.createElement('div');
+        probeStatus.className = 'probe-status';
+        probeStatus.textContent = `Status: ${probe.status}`;
 
-        const meta = document.createElement('div');
-        meta.className = 'tile-meta';
-        meta.textContent = this._formatMeta(entity.attributes || {});
+        probeCard.append(probeTitle, probeStatus);
 
-        tile.append(name, value);
-        if (meta.textContent) {
-          tile.appendChild(meta);
+        if (probe.temperatures.length) {
+          const gauge = this._buildTemperatureGauge(probe.temperatures);
+          probeCard.appendChild(gauge);
         }
 
-        grid.appendChild(tile);
+        if (probe.meta) {
+          const meta = document.createElement('div');
+          meta.className = 'tile-meta';
+          meta.textContent = probe.meta;
+          probeCard.appendChild(meta);
+        }
+
+        grid.appendChild(probeCard);
       }
 
       content.appendChild(grid);
     }
+  }
+
+  _getProbeCards() {
+    const grouped = new Map();
+    const entities = this._getEntities();
+
+    for (const entity of entities) {
+      const probeKey = this._getProbeKey(entity.entity_id);
+      if (!probeKey) {
+        continue;
+      }
+
+      if (!grouped.has(probeKey)) {
+        grouped.set(probeKey, []);
+      }
+
+      grouped.get(probeKey).push(entity);
+    }
+
+    return [...grouped.entries()]
+      .map(([probeKey, probeEntities]) => this._buildProbeCard(probeKey, probeEntities))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  _buildProbeCard(probeKey, entities) {
+    const firstEntity = entities[0];
+    const name = firstEntity?.attributes?.probe_name || this._formatProbeName(probeKey);
+    const temperatures = [];
+    const metaParts = [];
+    let status = null;
+
+    for (const entity of entities) {
+      const metric = this._getMetricName(entity.entity_id, probeKey);
+      const attributes = entity.attributes || {};
+
+      if (!status && /(?:^|_)status$/.test(metric) && entity.state && entity.state !== 'unknown') {
+        status = entity.state;
+      }
+
+      if (!status && metric === 'cook_phase' && entity.state && entity.state !== 'unknown') {
+        status = entity.state;
+      }
+
+      if (!status && attributes.cook_phase) {
+        status = attributes.cook_phase;
+      }
+
+      const isTemperatureMetric =
+        metric.includes('temperature') ||
+        /°[CF]/.test(String(attributes.unit_of_measurement || ''));
+      const numericState = this._isNumeric(entity.state) ? Number(entity.state) : null;
+      if (isTemperatureMetric && numericState !== null) {
+        const label = this._formatTemperatureLabel(metric, attributes.friendly_name || entity.entity_id);
+        const unit = attributes.unit_of_measurement || '';
+        temperatures.push({
+          label,
+          value: numericState,
+          displayValue: `${numericState} ${unit}`.trim(),
+        });
+      }
+
+      if (attributes.battery_level !== undefined) {
+        metaParts.push(`Battery: ${attributes.battery_level}%`);
+      } else if (/battery/.test(metric) && this._isNumeric(entity.state)) {
+        metaParts.push(`Battery: ${entity.state}%`);
+      }
+    }
+
+    return {
+      name,
+      status: status || 'Unknown',
+      temperatures: this._dedupeTemperatures(temperatures),
+      meta: metaParts.filter(Boolean).join(' • '),
+    };
+  }
+
+  _buildTemperatureGauge(temperatures) {
+    const gauge = document.createElement('div');
+    gauge.className = 'gauge';
+
+    const track = document.createElement('div');
+    track.className = 'gauge-track';
+
+    const values = temperatures.map((temperature) => temperature.value);
+    const minValue = Math.min(...values);
+    const maxValue = Math.max(...values);
+    const spread = Math.max(0, maxValue - minValue);
+    const rangeMin = minValue - spread * 0.15;
+    const rangeMax = maxValue + spread * 0.15;
+    const rangeSpan = Math.max(1, rangeMax - rangeMin);
+    const colorScale = ['var(--error-color)', 'var(--warning-color)', 'var(--info-color)', 'var(--primary-color)'];
+
+    temperatures.forEach((temperature, index) => {
+      const marker = document.createElement('div');
+      marker.className = 'gauge-marker';
+      marker.style.left = `${((temperature.value - rangeMin) / rangeSpan) * 100}%`;
+      marker.style.background = colorScale[index % colorScale.length];
+      marker.title = `${temperature.label}: ${temperature.displayValue}`;
+      track.appendChild(marker);
+    });
+
+    const labels = document.createElement('div');
+    labels.className = 'gauge-labels';
+    labels.innerHTML = `<span>${rangeMin.toFixed(0)}</span><span>${rangeMax.toFixed(0)}</span>`;
+
+    const temperatureList = document.createElement('ul');
+    temperatureList.className = 'temperature-list';
+
+    temperatures.forEach((temperature) => {
+      const row = document.createElement('li');
+      row.className = 'temperature-item';
+      const name = document.createElement('span');
+      name.className = 'temperature-name';
+      name.textContent = temperature.label;
+      const value = document.createElement('span');
+      value.className = 'temperature-value';
+      value.textContent = temperature.displayValue;
+      row.append(name, value);
+      temperatureList.appendChild(row);
+    });
+
+    gauge.append(track, labels, temperatureList);
+    return gauge;
   }
 
   _formatState(entity) {
@@ -259,6 +446,71 @@ class HaMeaterCard extends HTMLElement {
     }
 
     return parts.join(' • ');
+  }
+
+  _getProbeKey(entityId) {
+    const objectId = entityId.split('.')[1] || '';
+    if (!objectId.startsWith('meater_probe_')) {
+      return null;
+    }
+
+    const knownSuffixes = [
+      'internal_temperature',
+      'ambient_temperature',
+      'target_temperature',
+      'cook_phase',
+      'status',
+      'battery',
+      'battery_level',
+      'connection_status',
+      'surface_temperature',
+      'core_temperature',
+      'temperature',
+    ];
+
+    for (const suffix of knownSuffixes) {
+      if (objectId.endsWith(`_${suffix}`)) {
+        return objectId.slice(0, -(suffix.length + 1));
+      }
+    }
+
+    const lastUnderscore = objectId.lastIndexOf('_');
+    return lastUnderscore > -1 ? objectId.slice(0, lastUnderscore) : objectId;
+  }
+
+  _getMetricName(entityId, probeKey) {
+    const objectId = entityId.split('.')[1] || '';
+    if (!objectId.startsWith(`${probeKey}_`)) {
+      return '';
+    }
+    return objectId.slice(probeKey.length + 1);
+  }
+
+  _formatProbeName(probeKey) {
+    return probeKey
+      .replace(/^meater_/i, '')
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _formatTemperatureLabel(metric, fallbackName) {
+    if (!metric) {
+      return fallbackName;
+    }
+
+    return metric
+      .replace(/_temperature$/i, '')
+      .replace(/^temperature$/i, 'current')
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  _dedupeTemperatures(temperatures) {
+    const unique = new Map();
+    for (const temperature of temperatures) {
+      unique.set(temperature.label, temperature);
+    }
+    return [...unique.values()];
   }
 
   _isNumeric(value) {

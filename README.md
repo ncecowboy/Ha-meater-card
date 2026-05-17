@@ -1,6 +1,6 @@
 # HA Meater Card
 
-A custom Lovelace card for Home Assistant that automatically discovers and displays entities from the Meater integration (probes and block sensors) in a clean visual grid.
+A custom Lovelace card for Home Assistant that automatically discovers Meater probe entities and shows one probe card per probe.
 
 ## Installation
 
@@ -34,7 +34,7 @@ type: custom:ha-meater-card
 title: Meater Overview
 ```
 
-Auto-discovery includes all `[domain].meater*` entities (for example `sensor.meater_probe_1_internal_temperature`), so multiple probes (for example `probe_1`, `probe_2`, etc.) are shown automatically.
+Auto-discovery includes all `[domain].meater*` entities, then groups probe entities into one card per probe (for example `probe_1`, `probe_2`, etc.).
 
 ### Show specific entities
 
@@ -60,4 +60,6 @@ This card now supports the Lovelace visual editor. You can set:
 ## Notes
 
 - The card searches for entities with `meater` in the entity ID when `entities` is not provided.
-- Entity tiles show friendly name, current value, and useful metadata when available (probe name, battery, target temperature, and cook phase).
+- Probe entities are rendered as separate probe cards.
+- Temperatures for a probe are shown together on one shared temperature gauge.
+- Probe status is shown as `Status: ...` in each probe card.
