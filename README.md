@@ -11,7 +11,7 @@ A custom Lovelace card for Home Assistant that automatically discovers and displ
 3. Add the resource in **Settings → Dashboards → Resources** if it is not added automatically:
 
 ```yaml
-url: /hacsfiles/Ha-meater-card/ha-meater-card.js
+url: /hacsfiles/ha-meater-card/ha-meater-card.js
 type: module
 ```
 
