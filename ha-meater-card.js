@@ -589,17 +589,37 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _extractTimerSeconds(metric, state, attributes, type) {
-    // Match elapsed-related metrics without treating *_remaining variants as elapsed.
-    const elapsedMetricPattern =
-      /(?:^|_)(?:elapsed|time_elapsed|cook_time|duration)(?:$|_)(?!remaining|left|until_complete|to_completion|time_to_completion)/;
-    const remainingMetricPattern = /(remaining|time_left|until_complete|to_completion|time_to_completion)/;
-    const metricPattern = type === 'elapsed' ? elapsedMetricPattern : remainingMetricPattern;
+    const elapsedMetricNames = new Set([
+      'elapsed',
+      'elapsed_time',
+      'time_elapsed',
+      'cook_time',
+      'cook_elapsed_time',
+      'duration',
+    ]);
+    const remainingMetricNames = new Set([
+      'remaining',
+      'remaining_time',
+      'time_remaining',
+      'cook_time_remaining',
+      'time_left',
+      'time_until_complete',
+      'until_complete',
+      'to_completion',
+      'time_to_completion',
+      'eta_seconds',
+    ]);
+    const normalizedMetric = String(metric || '').toLowerCase();
+    const metricMatchesType =
+      type === 'elapsed'
+        ? elapsedMetricNames.has(normalizedMetric)
+        : remainingMetricNames.has(normalizedMetric);
     const attributeKeys =
       type === 'elapsed'
         ? ['elapsed_time', 'time_elapsed', 'cook_elapsed_time', 'duration']
         : ['remaining_time', 'time_remaining', 'cook_time_remaining', 'time_until_complete', 'eta_seconds'];
 
-    if (metricPattern.test(metric)) {
+    if (metricMatchesType) {
       const seconds = this._parseDurationSeconds(state);
       if (seconds !== null) {
         return seconds;
