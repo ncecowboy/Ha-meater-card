@@ -589,6 +589,7 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _extractTimerSeconds(metric, state, attributes, type) {
+    // Match elapsed-related metrics without treating *_remaining variants as elapsed.
     const elapsedMetricPattern =
       /(?:^|_)(?:elapsed|time_elapsed|cook_time|duration)(?:$|_)(?!remaining|left|until_complete|to_completion|time_to_completion)/;
     const remainingMetricPattern = /(remaining|time_left|until_complete|to_completion|time_to_completion)/;
