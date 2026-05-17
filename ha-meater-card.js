@@ -37,7 +37,7 @@ class HaMeaterCard extends HTMLElement {
           .map((entityId) => this._hass.states[entityId])
           .filter(Boolean)
       : Object.values(this._hass.states).filter((state) =>
-          /^[^.]+\.meater([._]|$)/i.test(state.entity_id)
+          /\.meater([._]|$)/i.test(state.entity_id)
         );
 
     return selectedEntities
@@ -219,7 +219,13 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _isNumeric(value) {
-    return typeof value === 'number' || (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value));
+    if (typeof value === 'number') {
+      return Number.isFinite(value);
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      return Number.isFinite(Number(value));
+    }
+    return false;
   }
 }
 
