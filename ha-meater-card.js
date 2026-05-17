@@ -1,12 +1,14 @@
+const DEFAULT_TITLE = 'Meater Overview';
+
 class HaMeaterCard extends HTMLElement {
-  static async getConfigElement() {
+  static getConfigElement() {
     return document.createElement('ha-meater-card-editor');
   }
 
   static getStubConfig() {
     return {
       type: 'custom:ha-meater-card',
-      title: 'Meater Overview',
+      title: DEFAULT_TITLE,
       show_unavailable: false,
     };
   }
@@ -17,7 +19,7 @@ class HaMeaterCard extends HTMLElement {
     }
 
     this._config = {
-      title: 'Meater',
+      title: DEFAULT_TITLE,
       show_unavailable: false,
       ...config,
     };
@@ -271,7 +273,7 @@ class HaMeaterCardEditor extends HTMLElement {
 
     const entityOptions = this._hass?.states
       ? Object.keys(this._hass.states)
-          .filter((entityId) => /^[^.]+\.meater([._]|$)/i.test(entityId))
+          .filter((entityId) => this._isMeaterEntityId(entityId))
           .sort((a, b) => a.localeCompare(b))
       : [];
 
@@ -308,7 +310,7 @@ class HaMeaterCardEditor extends HTMLElement {
       </style>
       <div class="field">
         <label for="title">Title</label>
-        <input id="title" type="text" value="${this._escapeHtml(this._config.title || 'Meater')}" />
+        <input id="title" type="text" value="${this._escapeHtml(this._config.title || DEFAULT_TITLE)}" />
       </div>
       <div class="field">
         <label for="entities">Entities (one per line, optional)</label>
@@ -324,7 +326,7 @@ class HaMeaterCardEditor extends HTMLElement {
     `;
 
     this.shadowRoot.getElementById('title').addEventListener('input', (event) => {
-      this._updateConfig({ title: event.target.value.trim() || 'Meater' });
+      this._updateConfig({ title: event.target.value.trim() || DEFAULT_TITLE });
     });
 
     this.shadowRoot.getElementById('entities').addEventListener('input', (event) => {
@@ -363,6 +365,10 @@ class HaMeaterCardEditor extends HTMLElement {
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  }
+
+  _isMeaterEntityId(entityId) {
+    return /^[^.]+\.meater([._]|$)/i.test(entityId);
   }
 }
 
