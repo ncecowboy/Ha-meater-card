@@ -303,7 +303,7 @@ class HaMeaterCard extends HTMLElement {
         probeCard.append(probeTitle, probeStatus);
 
         if (probe.temperatures.length) {
-          const gauge = this._buildTemperatureGauge(probe.temperatures);
+          const gauge = this._buildTemperatureGauge(probe.temperatures, probe.cookState);
           probeCard.appendChild(gauge);
         }
 
@@ -354,6 +354,7 @@ class HaMeaterCard extends HTMLElement {
     const temperatures = [];
     const metaParts = [];
     let status = null;
+    let cookState = null;
     let elapsedSeconds = null;
     let remainingSeconds = null;
 
@@ -365,12 +366,24 @@ class HaMeaterCard extends HTMLElement {
         status = entity.state;
       }
 
-      if (!status && metric === 'cook_phase' && entity.state && entity.state !== 'unknown') {
-        status = entity.state;
+      if (!cookState && metric === 'cook_phase' && entity.state && entity.state !== 'unknown') {
+        cookState = entity.state;
       }
 
-      if (!status && attributes.cook_phase) {
-        status = attributes.cook_phase;
+      if (!cookState && metric === 'cook_state' && entity.state && entity.state !== 'unknown') {
+        cookState = entity.state;
+      }
+
+      if (!cookState && attributes.cook_phase) {
+        cookState = attributes.cook_phase;
+      }
+
+      if (!cookState && attributes.cook_state) {
+        cookState = attributes.cook_state;
+      }
+
+      if (!status && attributes.status) {
+        status = attributes.status;
       }
 
       const isTemperatureMetric =
@@ -412,14 +425,15 @@ class HaMeaterCard extends HTMLElement {
 
     return {
       name,
-      status: status || 'Unknown',
+      status: status || cookState || 'Unknown',
+      cookState,
       temperatures: this._dedupeTemperatures(temperatures),
       timers,
       meta: metaParts.filter(Boolean).join(' • '),
     };
   }
 
-  _buildTemperatureGauge(temperatures) {
+  _buildTemperatureGauge(temperatures, cookState) {
     const gauge = document.createElement('div');
     gauge.className = 'gauge';
 
@@ -468,6 +482,19 @@ class HaMeaterCard extends HTMLElement {
       row.append(name, value);
       temperatureList.appendChild(row);
     });
+
+    if (cookState !== null) {
+      const row = document.createElement('li');
+      row.className = 'temperature-item';
+      const name = document.createElement('span');
+      name.className = 'temperature-name';
+      name.textContent = 'Cook State';
+      const value = document.createElement('span');
+      value.className = 'temperature-value';
+      value.textContent = this._titleCase(cookState);
+      row.append(name, value);
+      temperatureList.appendChild(row);
+    }
 
     gauge.append(track, labels, temperatureList);
     return gauge;
@@ -564,10 +591,12 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _formatProbeName(probeKey) {
-    return probeKey
-      .replace(/^meater_/i, '')
-      .replaceAll('_', ' ')
-      .replace(/\b\w/g, (char) => char.toUpperCase());
+    return this._titleCase(probeKey.replace(/^meater_/i, ''));
+  }
+
+  _titleCase(text) {
+    if (text == null) return '';
+    return String(text).replaceAll('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase());
   }
 
   _formatTemperatureLabel(metric, fallbackName) {
