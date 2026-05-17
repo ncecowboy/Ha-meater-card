@@ -37,7 +37,7 @@ class HaMeaterCard extends HTMLElement {
           .map((entityId) => this._hass.states[entityId])
           .filter(Boolean)
       : Object.values(this._hass.states).filter((state) =>
-          /\.meater([._]|$)/i.test(state.entity_id)
+          /^[^.]+\.meater([._]|$)/i.test(state.entity_id)
         );
 
     return selectedEntities
@@ -130,7 +130,8 @@ class HaMeaterCard extends HTMLElement {
 
     const count = document.createElement('div');
     count.className = 'count';
-    count.textContent = `${entities.length} ${entities.length === 1 ? 'entity' : 'entities'}`;
+    const entityLabel = entities.length === 1 ? 'entity' : 'entities';
+    count.textContent = `${entities.length} ${entityLabel}`;
 
     header.append(title, count);
     card.appendChild(header);
@@ -138,7 +139,9 @@ class HaMeaterCard extends HTMLElement {
     if (!entities.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = 'No Meater entities were found. Confirm the Meater integration is loaded.';
+      empty.textContent = Array.isArray(this._config.entities)
+        ? 'No matching configured entities were found.'
+        : 'No Meater entities were found. Confirm the Meater integration is loaded.';
       card.appendChild(empty);
     } else {
       const grid = document.createElement('div');
