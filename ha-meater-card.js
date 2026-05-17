@@ -359,7 +359,7 @@ class HaMeaterCard extends HTMLElement {
       const metric = this._getMetricName(entity.entity_id, probeKey);
       const attributes = entity.attributes || {};
 
-      if (!status && /(?:^|_)status$/.test(metric) && entity.state && entity.state !== 'unknown') {
+      if (!status && metric === 'status' && entity.state && entity.state !== 'unknown') {
         status = entity.state;
       }
 
@@ -550,8 +550,7 @@ class HaMeaterCard extends HTMLElement {
       }
     }
 
-    const lastUnderscore = objectId.lastIndexOf('_');
-    return lastUnderscore > -1 ? objectId.slice(0, lastUnderscore) : objectId;
+    return objectId;
   }
 
   _getMetricName(entityId, probeKey) {
@@ -590,7 +589,8 @@ class HaMeaterCard extends HTMLElement {
   }
 
   _extractTimerSeconds(metric, state, attributes, type) {
-    const elapsedMetricPattern = /(elapsed|time_elapsed|cook_time|duration)/;
+    const elapsedMetricPattern =
+      /(?:^|_)(?:elapsed|time_elapsed|cook_time|duration)(?:$|_)(?!remaining|left|until_complete|to_completion|time_to_completion)/;
     const remainingMetricPattern = /(remaining|time_left|until_complete|to_completion|time_to_completion)/;
     const metricPattern = type === 'elapsed' ? elapsedMetricPattern : remainingMetricPattern;
     const attributeKeys =
