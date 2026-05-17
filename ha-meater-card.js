@@ -414,9 +414,10 @@ class HaMeaterCard extends HTMLElement {
     const minValue = Math.min(...values);
     const maxValue = Math.max(...values);
     const spread = Math.max(0, maxValue - minValue);
-    const rangeMin = minValue - spread * GAUGE_PADDING_RATIO;
-    const rangeMax = maxValue + spread * GAUGE_PADDING_RATIO;
-    const rangeSpan = Math.max(1, rangeMax - rangeMin);
+    const baseSpread = spread === 0 ? 10 : spread;
+    const rangeMin = minValue - baseSpread * GAUGE_PADDING_RATIO;
+    const rangeMax = maxValue + baseSpread * GAUGE_PADDING_RATIO;
+    const rangeSpan = rangeMax - rangeMin;
 
     temperatures.forEach((temperature, index) => {
       const marker = document.createElement('div');
@@ -658,11 +659,7 @@ class HaMeaterCard extends HTMLElement {
       const hours = hourMatch ? Number(hourMatch[1]) : 0;
       const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
       const seconds = secondMatch ? Number(secondMatch[1]) : 0;
-      const total = hours * 3600 + minutes * 60 + seconds;
-      if (total < 0) {
-        return null;
-      }
-      return Math.round(total);
+      return Math.round(hours * 3600 + minutes * 60 + seconds);
     }
 
     return null;
